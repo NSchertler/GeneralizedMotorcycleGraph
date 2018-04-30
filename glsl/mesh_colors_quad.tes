@@ -1,0 +1,137 @@
+#version 430
+
+layout(quads, equal_spacing) in;
+
+in TCS_OUT
+{
+	vec2 pos;
+} vIn[];
+
+out vec4 vertexColor;
+
+uniform vec2 overflow;
+
+patch in uint quadId;
+
+uniform int R;
+
+struct QuadData
+{
+	vec2 cornerTexCoords[4];
+	vec2 texCoords[9];
+	uint cPtr;
+};
+
+layout(std430, binding = 0) buffer quadData
+{
+    QuadData quads[];
+};
+
+layout(std430, binding = 1) buffer colorData
+{
+    vec4 c[];
+};
+
+vec4 colorDisplacement(uvec2 coord)
+{
+	vec4 ret;
+	ret = c[quads[quadId].cPtr + coord.x + coord.y * (R + 1)];
+
+	return ret;
+}
+
+void main(void)
+{
+	vec2 uv = gl_TessCoord.xy;
+	
+	uvec2 i = uvec2(round(R * uv));
+	vec4 cd = colorDisplacement(i);
+
+	vertexColor = vec4(cd.rgb, 1);	
+	const float gamma = 2.2 * 1.2;
+	vertexColor.rgb = pow(vertexColor.rgb, vec3(1.0 / gamma));
+
+	vec2 center = quads[quadId].texCoords[4];
+
+	int leftInterpol, rightInterpol;
+	float leftWeight;
+	if(i.x == 0)
+	{
+		leftInterpol = rightInterpol = 0;
+		leftWeight = 0.5;
+	}
+	else if(i.x == R / 2)
+	{
+		leftInterpol = rightInterpol = 1;
+		leftWeight = 0.5;
+	}
+	else if(i.x == R)
+	{
+		leftInterpol = rightInterpol = 2;
+		leftWeight = 0.5;
+	}
+	else if(i.x < R/2)
+	{
+		leftInterpol = 0;
+		rightInterpol = 1;
+		leftWeight = 2 * (0.5 - uv.x);
+	}
+	else
+	{
+		leftInterpol = 1;
+		rightInterpol = 2;
+		leftWeight = 2 * (1 - uv.x);
+	}
+
+	int bottomInterpol, topInterpol;
+	float bottomWeight;
+	if(i.y == 0)
+	{
+		bottomInterpol = topInterpol = 0;
+		bottomWeight = 0.5;
+	}
+	else if(i.y == R / 2)
+	{
+		bottomInterpol = topInterpol = 1;
+		bottomWeight = 0.5;
+	}
+	else if(i.y == R)
+	{
+		bottomInterpol = topInterpol = 2;
+		bottomWeight = 0.5;
+	}
+	else if(i.y < R/2)
+	{
+		bottomInterpol = 0;
+		topInterpol = 1;
+		bottomWeight = 2 * (0.5 - uv.y);
+	}
+	else
+	{
+		bottomInterpol = 1;
+		topInterpol = 2;
+		bottomWeight = 2 * (1 - uv.y);
+	}
+
+	//leftInterpol = 0;
+	//rightInterpol = 2;
+	//leftWeight = 1-uv.x;
+	//bottomInterpol = 0;
+	//topInterpol = 2;
+	//bottomWeight = 1-uv.y;
+
+	vec2 p;
+	
+	//vertexColor.r = leftWeight;
+	//vertexColor.g = bottomWeight;
+
+	QuadData quad = quads[quadId];
+	p = (1 - uv.x) * ((1 - uv.y) * vIn[0].pos + uv.y * vIn[3].pos) + uv.x * ((1 - uv.y) * vIn[1].pos + uv.y * vIn[2].pos);
+	p = leftWeight * (bottomWeight * quad.texCoords[leftInterpol + 3 * bottomInterpol] + (1 - bottomWeight) * quad.texCoords[leftInterpol + 3 * topInterpol])
+		+ (1 - leftWeight) * (bottomWeight * quad.texCoords[rightInterpol + 3 * bottomInterpol] + (1 - bottomWeight) * quad.texCoords[rightInterpol + 3 * topInterpol]);
+
+	if(overflow != vec2(0, 0))
+		p = p + normalize(p - center) * overflow;
+
+	gl_Position = vec4(2 * p - vec2(1, 1), 0, 1);
+}

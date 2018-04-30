@@ -1,0 +1,9 @@
+[submodule "ext/nsessentials"]
+	path = ext/nsessentials
+	url = https://github.com/NSchertler/NSEssentials
+[submodule "ext/nanogui"]
+	path = ext/nanogui
+	url = https://github.com/NSchertler/nanogui
+[submodule "ext/OpenMesh"]
+	path = ext/OpenMesh
+	url = https://www.graphics.rwth-aachen.de:9000/OpenMesh/OpenMesh.git
