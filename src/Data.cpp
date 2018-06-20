@@ -60,29 +60,8 @@ void Data::Clear()
 	connectedComponents.clear();	
 }
 
-void Data::LoadMesh(const std::string& filename, bool mergeTriangulatedQuads, float mergeAngleThreshold)
+void Data::LoadPolygons(const Matrix3Xf& V, const FaceList& F, const std::vector<std::vector<unsigned int>>& subdivisionInfo)
 {
-	Clear();	
-
-	::LoadMesh(filename, V, F);
-
-	if (mergeTriangulatedQuads)
-		MergeTriangulatedQuads(F, V, std::cos(mergeAngleThreshold));
-
-	bool hasNonQuads = false;
-	for (auto& f : F)
-		if (f.size() != 4)
-		{
-			hasNonQuads = true;
-			break;
-		}
-
-	size_t originalVertices = V.cols();
-
-	std::vector<std::vector<unsigned int>> subdivisionInfo;
-	if (hasNonQuads)
-		CatmullClarkSubdivide(F, V, subdivisionInfo);
-
 	connectedComponentsUF.AddItems(V.cols());
 
 	//Generating half-edge data structure
@@ -131,14 +110,7 @@ void Data::LoadMesh(const std::string& filename, bool mergeTriangulatedQuads, fl
 				auto f = faceHandles[j];
 				this->subdivisionInfo[i].emplace_back(f, mesh.vertex_handle(F[j][1]));
 			}
-		}		
-	}
-
-	//Set isOriginal property
-	for (auto& e : mesh.edges())
-	{
-		auto h = mesh.halfedge_handle(e, 0);
-		mesh.property(isOriginalEdgeProp, e) = mesh.from_vertex_handle(h).idx() < originalVertices || mesh.to_vertex_handle(h).idx() < originalVertices;
+		}
 	}
 
 	//Find connected components
@@ -152,10 +124,43 @@ void Data::LoadMesh(const std::string& filename, bool mergeTriangulatedQuads, fl
 	averageEdgeLength = 0;
 	for (auto e : mesh.edges())
 		averageEdgeLength += mesh.calc_edge_length(e);
-	averageEdgeLength /= mesh.n_edges();	
+	averageEdgeLength /= mesh.n_edges();
 
 	//Find singularities
-	FindSingularities();	
+	FindSingularities();
+}
+
+void Data::LoadMesh(const std::string& filename, bool mergeTriangulatedQuads, float mergeAngleThreshold)
+{
+	Clear();
+
+	::LoadMesh(filename, V, F);
+
+	if (mergeTriangulatedQuads)
+		MergeTriangulatedQuads(F, V, std::cos(mergeAngleThreshold));
+
+	bool hasNonQuads = false;
+	for (auto& f : F)
+		if (f.size() != 4)
+		{
+			hasNonQuads = true;
+			break;
+		}
+
+	size_t originalVertices = V.cols();
+
+	std::vector<std::vector<unsigned int>> subdivisionInfo;
+	if (hasNonQuads)
+		CatmullClarkSubdivide(F, V, subdivisionInfo);
+
+	LoadPolygons(V, F, subdivisionInfo);
+
+	//Set isOriginal property
+	for (auto& e : mesh.edges())
+	{
+		auto h = mesh.halfedge_handle(e, 0);
+		mesh.property(isOriginalEdgeProp, e) = mesh.from_vertex_handle(h).idx() < originalVertices || mesh.to_vertex_handle(h).idx() < originalVertices;
+	}
 }
 
 void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCoords)
@@ -164,53 +169,15 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 
 	Matrix2Xf T;
 	FaceList FT;
-	::load_obj(filename, V, F, T, FT);	
-	
-	//Generating half-edge data structure
-	std::vector<HEMesh::FaceHandle> faceHandles(F.size());
-	{
-		nse::util::TimedBlock b("Generating half-edge data structure ..");
-		mesh.clear();
-		mesh.reserve(V.cols(), 2 * V.cols(), F.size());
-		for (int i = 0; i < V.cols(); ++i)
-		{
-			mesh.add_vertex(HEMesh::Point(V.coeff(0, i), V.coeff(1, i), V.coeff(2, i)));
-		}
+	::load_obj(filename, V, F, T, FT);
 
-		meshBoundingBox.reset();
-		std::vector<HEMesh::VertexHandle> face;
-		std::set<size_t> faceVertices;		
-		for (int i = 0; i < F.size(); ++i)
-		{
-			auto& f = F[i];
-			face.clear();
-			faceVertices.clear();
-			for (auto v : f)
-			{
-				face.push_back(mesh.vertex_handle(v));
-				faceVertices.insert(v);
+	std::vector<std::vector<unsigned int>> subdivisionInfo;
+	LoadPolygons(V, F, subdivisionInfo);
 
-				meshBoundingBox.expand(V.col(v));
-			}
-			if (faceVertices.size() != f.size())
-			{
-				std::cout << "Face has duplicated vertices: ";
-				for (auto v : f)
-					std::cout << v << ", ";
-				std::cout << std::endl;
-			}
-			faceHandles[i] = mesh.add_face(face);
-		}		
-	}
+	for (auto& e : mesh.edges())
+		mesh.property(isOriginalEdgeProp, e) = true;
 
-	//calculate average edge length
-	averageEdgeLength = 0;
-	for (auto e : mesh.edges())
-		averageEdgeLength += mesh.calc_edge_length(e);
-	averageEdgeLength /= mesh.n_edges();
-
-	//Find singularities
-	FindSingularities();
+	GenerateNewMotorcycleGraph();
 
 	//Find patches
 	if (!FT.empty())
@@ -220,7 +187,7 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 		uf.AddItems(T.cols());
 		for (auto& ft : FT)
 		{
-			for(int i = 1; i < ft.size(); ++i)
+			for (int i = 1; i < ft.size(); ++i)
 				uf.Merge(ft[0], ft[i]);
 		}
 
@@ -229,10 +196,8 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 		size_t nextPatchIdx = 0;
 		for (int i = 0; i < uf.size(); ++i)
 			if (uf.GetRepresentative(i) == i)
-				repToPatchIdx[i] = nextPatchIdx++;		
+				repToPatchIdx[i] = nextPatchIdx++;
 
-		GenerateNewMotorcycleGraph();
-		
 		std::vector<MotorcycleGraph::HalfArc> halfarcs;
 
 		std::vector<std::set<HEMesh::HalfedgeHandle>> edgesInPatch(nextPatchIdx);
@@ -241,7 +206,7 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 		for (int i = 0; i < FT.size(); ++i)
 		{
 			auto patchIdx = repToPatchIdx.at(uf.GetRepresentative(FT[i][0]));
-			auto f = faceHandles[i];
+			auto f = HEMesh::FaceHandle(i);
 			facesPerPatch[patchIdx].insert(f);
 			for (auto h : mesh.fh_range(f))
 				edgesInPatch[patchIdx].insert(h);
@@ -278,34 +243,52 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 			}
 		}
 
-		std::vector<TexturePatch> patches(nextPatchIdx, TexturePatch(*motorcycleGraph));
+		std::vector<TexturePatch> patches;
+		patches.reserve(nextPatchIdx);
 		for (int i = 0; i < nextPatchIdx; ++i)
 		{
 			patches.emplace_back(*motorcycleGraph);
 			std::vector<HEMesh::HalfedgeHandle> empty;
 			patches.back().PrepareBuild(std::move(sidesPerPatch[i]), std::move(facesPerPatch[i]), std::move(empty));
-			patches.back().Build(mesh);
-		}
-
-		float scale = 1;
-		if(scaleTexCoords)
-			scale = 1024 / averageEdgeLength;
-		for (int i = 0; i < FT.size(); ++i)
-		{
-			auto& ft = FT[i];
-			auto& patch = patches[repToPatchIdx.at(uf.GetRepresentative(ft[0]))];
-			for (int j = 0; j < ft.size(); ++j)
-			{
-				auto v = mesh.vertex_handle(F[i][j]);
-				try {
-					//TODO: repair
-					//patch.textureCoordinates[patch.verticesToIndex.at(v)] = T.col(ft[j]) * scale;
-				}catch(...)
-				{  }
-			}
 		}
 
 		motorcycleGraph->LoadExternal(std::move(patches), std::move(halfarcs));
+
+		textureWidth = 1024;
+		textureHeight = 1024;
+
+		Eigen::Vector2f scale(1, 1);
+		if (scaleTexCoords)
+		{
+			scale.x() = textureWidth / averageEdgeLength;
+			scale.y() = textureHeight / averageEdgeLength;
+		}
+		for (int i = 0; i < FT.size(); ++i)
+		{
+			auto& ft = FT[i];
+			auto f = HEMesh::FaceHandle(i);
+			auto patchIdx = repToPatchIdx.at(uf.GetRepresentative(ft[0]));
+			auto& patch = patches[patchIdx];
+
+			auto h = mesh.halfedge_handle(f);
+			auto& texCoords = AccessTexCoords(patchIdx);
+
+			//Align the face halfedge to the face structure
+			while (mesh.to_vertex_handle(h).idx() != F[i][0])
+				h = mesh.next_halfedge_handle(h);
+
+			for (int j = 0; j < ft.size(); ++j)
+			{
+				try
+				{
+					texCoords.TexCoordAtToVertex(h, mesh) = scale.cwiseProduct(T.col(ft[j]));
+					h = mesh.next_halfedge_handle(h);
+				}
+				catch (...)
+				{
+				}
+			}
+		}
 	}
 }
 

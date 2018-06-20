@@ -2907,6 +2907,10 @@ void MotorcycleGraph::LoadExternal(std::vector<TexturePatch>&& patches, std::vec
 {
 	this->patches = patches;
 	this->halfArcs = halfarcs;
+
+	for (auto& patch : this->patches)
+		patch.Build(*mesh);
+
 	PatchesChanged();
 }
 

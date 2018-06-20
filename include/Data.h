@@ -305,6 +305,9 @@ private:
 		{ }
 	};
 	
+	//Loads a mesh into the structure, generating all auxiliary data structures
+	void LoadPolygons(const Matrix3Xf& V, const FaceList& F, const std::vector<std::vector<unsigned int>>& subdivisionInfo);
+
 	//For each fenced region, gathers the edges over which motorcycles can enter it and stores them in 
 	//fencedRegions.enteringEdgeToPatch.
 	void RecordPatchEnteringEdges();
