@@ -15,13 +15,15 @@ install:
 build_script:
   - echo Running cmake...
   - cd c:\projects\GeneralizedMotorcycleGraph
-  - cmake -G "Visual Studio 15 2017 Win64"
+  - mkdir build
+  - cd build
+  - cmake .. -G "Visual Studio 15 2017 Win64"
   - set MSBuildLogger="C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
   - set MSBuildOptions=/v:m /p:Configuration=Release /logger:%MSBuildLogger%
   - msbuild %MSBuildOptions% RegularMeshTexturing.sln
   - cd bin/Release
-  - 7z a ../../gmcg-windows.zip "RegularMeshTexturing.exe"
-  - cd ../..
+  - 7z a ../../../gmcg-windows.zip "RegularMeshTexturing.exe"
+  - cd ../../..
   - appveyor PushArtifact gmcg-windows.zip -FileName gmcg-windows.zip
 on_success:
   - git config --global credential.helper store
