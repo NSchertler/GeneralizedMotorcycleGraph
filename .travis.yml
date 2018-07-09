@@ -13,10 +13,12 @@ matrix:
         skip_cleanup: true
         github_token: $GITHUB_TOKEN
         target_branch: deploy-linux
-        local_dir: build
+        local_dir: build/build
       dist: trusty      
       script:
-        - cmake -DCMAKE_CXX_COMPILER=g++-6 -DCMAKE_C_COMPILER=gcc-6 -DNANOGUI_USE_GLAD=ON
+        - mkdir build
+        - cd build
+        - cmake .. -DCMAKE_CXX_COMPILER=g++-6 -DCMAKE_C_COMPILER=gcc-6 -DNANOGUI_USE_GLAD=ON
         - make RegularMeshTexturing
         - mkdir build
         - zip -r build/gmcg-linux.zip bin
@@ -42,7 +44,9 @@ matrix:
         local_dir: build
       compiler: clang
       script:
-        - cmake -DNANOGUI_USE_GLAD=ON
+        - mkdir build
+        - cd build
+        - cmake .. -DNANOGUI_USE_GLAD=ON
         - make RegularMeshTexturing
         - mkdir build
         - cp bin/RegularMeshTexturing.app/Contents/MacOS/RegularMeshTexturing bin/RegularMeshTexturing
