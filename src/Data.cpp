@@ -60,7 +60,7 @@ void Data::Clear()
 	connectedComponents.clear();	
 }
 
-void Data::LoadPolygons(const Matrix3Xf& V, const FaceList& F, const std::vector<std::vector<unsigned int>>& subdivisionInfo)
+void Data::LoadPolygons(const Matrix3Xf& V, const FaceList& F, const std::vector<std::vector<unsigned int>>& subdivisionInfo, std::vector<HEMesh::FaceHandle>& faceHandles)
 {
 	connectedComponentsUF.AddItems(V.cols());
 
@@ -77,7 +77,7 @@ void Data::LoadPolygons(const Matrix3Xf& V, const FaceList& F, const std::vector
 		meshBoundingBox.reset();
 		std::vector<HEMesh::VertexHandle> face;
 		std::set<size_t> faceVertices;
-		std::vector<HEMesh::FaceHandle> faceHandles(F.size());
+		faceHandles.resize(F.size());
 		for (int i = 0; i < F.size(); ++i)
 		{
 			auto& f = F[i];
@@ -153,7 +153,8 @@ void Data::LoadMesh(const std::string& filename, bool mergeTriangulatedQuads, fl
 	if (hasNonQuads)
 		CatmullClarkSubdivide(F, V, subdivisionInfo);
 
-	LoadPolygons(V, F, subdivisionInfo);
+	std::vector<HEMesh::FaceHandle> faceHandles;
+	LoadPolygons(V, F, subdivisionInfo, faceHandles);
 
 	//Set isOriginal property
 	for (auto& e : mesh.edges())
@@ -172,13 +173,14 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 	::load_obj(filename, V, F, T, FT);
 
 	std::vector<std::vector<unsigned int>> subdivisionInfo;
-	LoadPolygons(V, F, subdivisionInfo);
+	std::vector<HEMesh::FaceHandle> faceHandles;
+	LoadPolygons(V, F, subdivisionInfo, faceHandles);
 
 	for (auto& e : mesh.edges())
 		mesh.property(isOriginalEdgeProp, e) = true;
 
 	GenerateNewMotorcycleGraph();
-
+	
 	//Find patches
 	if (!FT.empty())
 	{
@@ -206,7 +208,9 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 		for (int i = 0; i < FT.size(); ++i)
 		{
 			auto patchIdx = repToPatchIdx.at(uf.GetRepresentative(FT[i][0]));
-			auto f = HEMesh::FaceHandle(i);
+			auto f = faceHandles[i];
+			if (!f.is_valid())
+				continue;
 			facesPerPatch[patchIdx].insert(f);
 			for (auto h : mesh.fh_range(f))
 				edgesInPatch[patchIdx].insert(h);
@@ -266,7 +270,9 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 		for (int i = 0; i < FT.size(); ++i)
 		{
 			auto& ft = FT[i];
-			auto f = HEMesh::FaceHandle(i);
+			auto f = faceHandles[i];
+			if (!f.is_valid())
+				continue;
 			auto patchIdx = repToPatchIdx.at(uf.GetRepresentative(ft[0]));
 			auto& patch = patches[patchIdx];
 
@@ -274,8 +280,14 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 			auto& texCoords = AccessTexCoords(patchIdx);
 
 			//Align the face halfedge to the face structure
-			while (mesh.to_vertex_handle(h).idx() != F[i][0])
+			int skipped = 0;
+			while (mesh.to_vertex_handle(h).idx() != F[i][0] && skipped < F[i].size())
+			{
 				h = mesh.next_halfedge_handle(h);
+				++skipped;
+			}
+			if (skipped == F[i].size())
+				continue;
 
 			for (int j = 0; j < ft.size(); ++j)
 			{
@@ -290,6 +302,8 @@ void Data::LoadMeshForVisualization(const std::string& filename, bool scaleTexCo
 			}
 		}
 	}
+
+	PackTexture(1);
 }
 
 void Data::TangentialSmooth()
@@ -355,6 +369,8 @@ void Data::SaveMeshPLY(const std::string& file) const
 
 void Data::SaveMeshOBJ(const std::string& file, bool unsubdivide) const
 {
+	const bool textureWireframe = false;
+
 	//unsubdivide
 	std::vector<bool> keepEdge(mesh.n_edges(), !unsubdivide);
 
@@ -634,7 +650,7 @@ void Data::SaveMeshOBJ(const std::string& file, bool unsubdivide) const
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, textureWidth, textureHeight);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, textureColor);		
 
-		glClearColor(1, 1, 1, 1);
+		glClearColor(1, 1, 1, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glViewport(0, 0, textureWidth, textureHeight);
@@ -643,10 +659,13 @@ void Data::SaveMeshOBJ(const std::string& file, bool unsubdivide) const
 		shader.setUniform("useUniformColor", 0);
 		glDrawElements(GL_TRIANGLES, faceIndices.size(), GL_UNSIGNED_INT, 0);
 
-		wireframeIndexBuffer.uploadData(wireframeIndices.size(), 1, sizeof(unsigned int), GL_UNSIGNED_INT, true, reinterpret_cast<uint8_t*>(wireframeIndices.data()));
-		shader.setUniform("useUniformColor", 1);
-		shader.setUniform("color", Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
-		glDrawElements(GL_LINES, wireframeIndices.size(), GL_UNSIGNED_INT, 0);
+		if (textureWireframe)
+		{
+			wireframeIndexBuffer.uploadData(wireframeIndices.size(), 1, sizeof(unsigned int), GL_UNSIGNED_INT, true, reinterpret_cast<uint8_t*>(wireframeIndices.data()));
+			shader.setUniform("useUniformColor", 1);
+			shader.setUniform("color", Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
+			glDrawElements(GL_LINES, wireframeIndices.size(), GL_UNSIGNED_INT, 0);
+		}
 
 		std::vector<unsigned char> pixels(textureWidth * textureHeight * 4);
 		glReadPixels(0, 0, textureWidth, textureHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());

@@ -29,7 +29,7 @@
 //#define LAPTOP_COMPAT
 
 Viewer::Viewer()
-	: AbstractViewer("Regular Mesh Texturing", 1280, 800, 
+	: AbstractViewer("Generalized Motorcycle Graph", 1280, 800, 
 #ifdef USE_MULTISAMPLING
 		4
 #else
@@ -365,6 +365,7 @@ void Viewer::SetupGUI()
 	chkInvisibleSeams = new nanogui::CheckBox(parametrizationOptionsBtn->popup(), "Invisible Seams");	
 #ifndef WITH_GUROBI
 	chkInvisibleSeams->setEnabled(false);
+	chkInvisibleSeams->setCaption("Invisible Seams are not supported because Gurobi is not available.");
 #endif // !WITH_GUROBI
 
 
@@ -392,7 +393,7 @@ void Viewer::SetupGUI()
 			data.PackTexture(mipFactor);
 	});	
 
-	(new nanogui::Widget(mainWindow))->setHeight(10); //spacing
+	/*(new nanogui::Widget(mainWindow))->setHeight(10); //spacing
 
 	auto renderMeshColorsTextureBtn = new nanogui::Button(mainWindow, "Render Mesh Colors to Texture");
 	renderMeshColorsTextureBtn->setCallback([this]() 
@@ -415,7 +416,7 @@ void Viewer::SetupGUI()
 	{
 		data.TangentialSmooth(); 
 		meshVertices.uploadData(data.Vertices());
-	});
+	});*/
 
 	auto focusOnPointBtn = new nanogui::Button(displayOptionsBtn->popup(), "Focus on Point");
 	focusOnPointBtn->setCallback([this]()
@@ -483,22 +484,36 @@ void Viewer::SetupGUI()
 		performLayout(nvgContext());
 	});
 
-	auto screenshotBtn = new nanogui::Button(mainWindow, "Take Screenshot");
-	screenshotBtn->setCallback([this]()
-	{
-		const int screenshotWidth = 4096;
-		const int screenshotHeight = screenshotWidth * height() / width();
+	//auto screenshotBtn = new nanogui::Button(mainWindow, "Take Screenshot");
+	//screenshotBtn->setCallback([this]()
+	//{
+	//	const int screenshotWidth = 4096;
+	//	const int screenshotHeight = screenshotWidth * height() / width();
 
-		isFileDialogOpen = true;
-		std::string filename = nanogui::file_dialog({ { "png", "PNG" } }, true);
-		if (!filename.empty())
-		{
-			if (filename.substr(filename.length() - 4) != ".png")
-				filename.append(".png");
-			TakeScreenshot(filename, screenshotWidth, screenshotHeight);
-		}
-		isFileDialogOpen = false;
-	});
+	//	isFileDialogOpen = true;
+	//	std::string filename = nanogui::file_dialog({ { "png", "PNG" } }, true);
+	//	if (!filename.empty())
+	//	{
+	//		if (filename.substr(filename.length() - 4) != ".png")
+	//			filename.append(".png");
+	//		TakeScreenshot(filename, screenshotWidth, screenshotHeight);
+	//	}
+	//	isFileDialogOpen = false;
+	//});
+
+	//auto makeTurntableBtn = new nanogui::Button(mainWindow, "Render Turntable");
+	//makeTurntableBtn->setCallback([this]()
+	//{			
+	//	camera().MakeHorizontal();
+
+	//	int frames = 30 /*fps*/ * 5 /*seconds per turn*/;
+	//	auto rot = Eigen::Quaternionf(Eigen::AngleAxisf(2 * M_PI / frames, Eigen::Vector3f::UnitY()));
+	//	for (int i = 0; i < frames; ++i)
+	//	{			
+	//		TakeScreenshot(std::string("turntable_") + std::to_string(i) + ".png", 1920, 1080);
+	//		camera().RotateAroundFocusPointGlobal(rot);
+	//	}
+	//});
 
 	performLayout(ctx);
 }
