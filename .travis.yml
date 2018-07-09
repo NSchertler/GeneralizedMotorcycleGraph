@@ -13,7 +13,7 @@ matrix:
         skip_cleanup: true
         github_token: $GITHUB_TOKEN
         target_branch: deploy-linux
-        local_dir: build/build
+        local_dir: build/export
       dist: trusty      
       script:
         - mkdir build
@@ -48,6 +48,6 @@ matrix:
         - cd build
         - cmake .. -DNANOGUI_USE_GLAD=ON
         - make RegularMeshTexturing
-        - mkdir build
+        - mkdir export
         - cp bin/RegularMeshTexturing.app/Contents/MacOS/RegularMeshTexturing bin/RegularMeshTexturing
-        - zip build/gmcg-macos.zip bin/RegularMeshTexturing
+        - zip export/gmcg-macos.zip bin/RegularMeshTexturing
