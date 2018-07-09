@@ -1,0 +1,35 @@
+version: 1.0.{build}
+image: Visual Studio 2017
+test: off
+clone_folder: C:\projects\GeneralizedMotorcycleGraph
+branches:
+  only:
+    - master
+    
+environment:   
+  access_token:
+    secure: tiZie8oQ9NaxNf87TpXYZ0cE+3qKwfyOhF2YC84efQ0PfrfDZskXI05mrGtEdwMu
+    
+install:
+  - git submodule update --init --recursive  
+build_script:
+  - echo Running cmake...
+  - cd c:\projects\GeneralizedMotorcycleGraph
+  - cmake -G "Visual Studio 15 2017 Win64"
+  - set MSBuildLogger="C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+  - set MSBuildOptions=/v:m /p:Configuration=Release /logger:%MSBuildLogger%
+  - msbuild %MSBuildOptions% RegularMeshTexturing.sln
+  - cd bin/Release
+  - 7z a ../../gmcg-windows.zip "RegularMeshTexturing.exe"
+  - cd ../..
+  - appveyor PushArtifact gmcg-windows.zip -FileName gmcg-windows.zip
+on_success:
+  - git config --global credential.helper store
+  - ps: Add-Content "$env:USERPROFILE\.git-credentials" "https://$($env:access_token):x-oauth-basic@github.com`n"
+  - git config --global user.email "nico.schertler@tu-dresden.de"
+  - git config --global user.name "AppVeyor"
+  - git checkout --orphan deploy-windows
+  - git rm -r --cached .
+  - git add gmcg-windows.zip
+  - git commit -m "Windows Build"
+  - git push -f origin deploy-windows:deploy-windows

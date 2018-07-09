@@ -174,7 +174,7 @@ void Viewer::SetupGUI()
 	{
 		std::stringstream ss;
 		ss.precision(2);
-		ss << value << "°";
+		ss << value << "\302\260"; //\302\260 = °
 		angleThresholdLabel->setValue(ss.str());
 	});
 	angleThresholdSld->callback()(angleThresholdSld->value());

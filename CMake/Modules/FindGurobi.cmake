@@ -49,7 +49,7 @@ find_library( GUROBI_CXX_LIBRARY_DEBUG
 			  PATH_SUFFIXES lib)
 
 include(FindPackageHandleStandardArgs)
-# handle the QUIETLY and REQUIRED arguments and set LIBCPLEX_FOUND to TRUE
+# handle the QUIETLY and REQUIRED arguments and set GUROBI_FOUND to TRUE
 # if all listed variables are TRUE
 find_package_handle_standard_args(GUROBI  DEFAULT_MSG
                                   GUROBI_CXX_LIBRARY_RELEASE GUROBI_CXX_LIBRARY_DEBUG GUROBI_INCLUDE_DIRS)
