@@ -23,7 +23,7 @@ On Unix-based systems, this may look as follows:
     mkdir build
     cd build
     cmake .. -DNANOGUI_USE_GLAD=ON
-    make
+    make RegularMeshTexturing
 	
 Some parts of the code make use of OpenMP.
 If your build environment does not support OpenMP (e.g. Clang on MacOS), the program will still compile but performance may be inferior due to missing parallelization.

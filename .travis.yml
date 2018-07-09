@@ -17,7 +17,7 @@ matrix:
       dist: trusty      
       script:
         - cmake -DCMAKE_CXX_COMPILER=g++-6 -DCMAKE_C_COMPILER=gcc-6 -DNANOGUI_USE_GLAD=ON
-        - make
+        - make RegularMeshTexturing
         - mkdir build
         - zip -r build/gmcg-linux.zip bin
       addons:
@@ -43,7 +43,7 @@ matrix:
       compiler: clang
       script:
         - cmake -DNANOGUI_USE_GLAD=ON
-        - make
+        - make RegularMeshTexturing
         - mkdir build
         - cp bin/RegularMeshTexturing.app/Contents/MacOS/RegularMeshTexturing bin/RegularMeshTexturing
         - zip build/gmcg-macos.zip bin/RegularMeshTexturing
