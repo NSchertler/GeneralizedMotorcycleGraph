@@ -13,7 +13,7 @@ matrix:
         skip_cleanup: true
         github_token: $GITHUB_TOKEN
         target_branch: deploy-linux
-        local_dir: build/export
+        local_dir: build/build
       dist: trusty      
       script:
         - mkdir build
@@ -41,7 +41,7 @@ matrix:
         skip_cleanup: true
         github_token: $GITHUB_TOKEN
         target_branch: deploy-osx
-        local_dir: build
+        local_dir: build/export
       compiler: clang
       script:
         - mkdir build
