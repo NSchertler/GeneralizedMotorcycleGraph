@@ -1,4 +1,4 @@
-#version 330 compatibility
+#version 330
 
 layout(location=0) out vec4 color;
 layout(location=1) out int id;
